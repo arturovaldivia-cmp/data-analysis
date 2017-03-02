@@ -1,10 +1,23 @@
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# CMP Data Analysis
+# AV: Oct 2016
+#
+# Sequential Analysis library
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Required libraries ------------------------------------------------------
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 library("dplyr")
 library("plotly")
 library("lubridate")
 library("reshape")
 
 
-# Compute first two moments ----------------------------------------------
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Compute first two moments ------------------------------------------------
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 beta_mean <- function(shape1 = 15, shape2 = 100){
   return(shape1/(shape1+shape2))
@@ -14,7 +27,9 @@ beta_var <- function(shape1 = 15, shape2 = 100){
   return((shape1*shape2)/(((shape1+shape2)^2)*(shape1+shape2+1)))
 }
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Compute p-value evolution ----------------------------------------------
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 P_value <- function(p1, p2, n1, n2, model = 1, returnProb = TRUE){
   
   if(model != 1){
@@ -35,36 +50,10 @@ P_value <- function(p1, p2, n1, n2, model = 1, returnProb = TRUE){
   return(z)#ifelse(returnProb,pnorm(abs(z)),z))
 }
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Success ratio analysis app
 # Compute Monte Carlo estimate ----------------------------------------------
-
-Beta_MonteCarlo <- function(Sample_size = 50e4
-                            ,Shape1 = c(50, 14, 140)
-                            ,Shape2 = c(70, 80, 140)
-                            ){
-  
-  numVariants = length(Shape1)
-  
-  Samples <- matrix(nrow = Sample_size, ncol = numVariants)  
-  
-  for(variation_ in 1:numVariants){
-    Samples[,variation_] <- rbeta(Sample_size, Shape1[variation_], Shape2[variation_])
-  }
-  
-  colnames(Samples) <- LETTERS[1:numVariants]
-  
-  Comparisons <- combn(LETTERS[1:numVariants],2)
-  Results <- colnames_ <- array(dim = length(Comparisons[1,]))
-  
-  for(comb_ in 1:length(colnames_)){
-    colnames_[comb_] <- paste(Comparisons[,comb_],collapse = ">")
-    
-    Results[comb_] <- sum(Samples[,Comparisons[1,comb_]] > Samples[,Comparisons[2,comb_]])/Sample_size
-  }
-  
-  rownames(Results) <- colnames_
-  
-  return(Results)
-}
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 app.Beta_samples <- function(Sample_size = 50e4
                             ,Shape1 = c(50, 14, 140)
@@ -110,7 +99,31 @@ app.Beta_MonteCarlo <- function(Sample = app.Beta_samples()){
   return(Results)
 }
 
-# Graphic tools ----------------------------------------------
+
+app.Beta_MonteCarlo_uplift <- function(Sample = app.Beta_samples()
+                                       ,uplift = .10
+                                       ){
+  
+  Sample_size = dim(Sample)[1] # Number of rows
+  numVariants = dim(Sample)[2] # Number of colums
+  
+  Comparisons <- combn(colnames(Sample),2)
+  Results <- colnames_ <- array(dim = length(Comparisons[1,]))
+  
+  for(comb_ in 1:length(colnames_)){
+    colnames_[comb_] <- paste(Comparisons[,comb_],collapse = ">")
+    
+    Results[comb_] <- sum(Sample[,Comparisons[1,comb_]] > (1+uplift)*Sample[,Comparisons[2,comb_]])/Sample_size
+  }
+  
+  rownames(Results) <- colnames_
+  
+  return(Results)
+}
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Graphic tools -----------------------------------------------------------
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Plot_distributions <- function(Shape1 = c(28, 15, 20, 14)
                                ,Shape2 = c(4473, 1398, 1000, 1090)
                                ,Dispersion_length = 3
@@ -279,207 +292,3 @@ Plotly_distributions <- function(Shape1 = c(842, 809)
                        )
   return(P)
 }
-# KPI variance ----------------------------------------------
-
-KPI_Variance <- function(Data = `Test data`
-                         ,Metric = "Sales"
-                         ,Format = "wide"
-                         ,Direction = ">"
-                         ){
-  
-  Left_factor = ifelse(Direction == ">",1,2)
-  Rigth_factor = ifelse(Direction == ">",2,1)
-  
-  numVariants = length(unique(Data$tour_id))
-  
-  Comparisons <- combn(LETTERS[1:numVariants],2)
-  colnames_ <- array(dim = length(Comparisons[1,]))
-  
-  Aux <- Data
-  names(Aux)[names(Aux) == Metric] <- "Metric"
-    
-  Aux <- cast(Aux %>%
-                dplyr::select(Day, tour_id, Metric)
-              ,Day~tour_id
-              )
-  names(Aux) <- c("Day", LETTERS[1:numTours])
-  Results <- matrix(nrow = length(Aux$Day), ncol = length(colnames_))
-  
-  for(comb_ in 1:length(colnames_)){
-    colnames_[comb_] <- paste(Comparisons[c(Left_factor,Rigth_factor),comb_],collapse = "/")
-    
-    Results[,comb_] <- (Aux[,Comparisons[Left_factor,comb_]] / Aux[,Comparisons[Rigth_factor,comb_]])-1
-  }
-  
-  colnames(Results) <- colnames_
-   
-  Results <- as.data.frame(Results)
-  
-  Results$Day <- Aux$Day
-  
-  if(Format == "long"){
-  Results <- melt(Results, id.vars = "Day")
-  names(Results)[2:3] <- c("Pair", "Variance")
-  }
-  return(Results)
-}
-
-# Next day forecasts ----------------------------------------------
-require(emdbook)
-tcredint("beta",list(shape1=5,shape2=10),level = .5
-         #, verbose=TRUE
-         )
-
-#Stirling approximation to the Beta function B(x,y)
-Stirling <- function(x = 10,y = 90
-                     ,log_form = TRUE
-                     ){
-  
-  log_approximation_ <- log(sqrt(2))+(x-0.5)*log(x)+(y-0.5)*log(y)-(x+y-0.5)*log(x+y)
-  
-  return(ifelse(log_form, log_approximation_, exp(log_approximation_)))
-  
-}
-
-
-Next_day_forecast <- function(Delta = 2
-                              ,Shape1 = 100
-                              ,U = 9000
-                              ,Shape2 = U/10
-                              ,Stirling_approximation = TRUE
-                              ){
-  probability_ <- 0
-  
-  for(k in 0:Delta){
-  
-    if(Stirling_approximation == FALSE){
-              #Initialize factors
-              product_ <- 1
-              v1 <- Shape1
-              v2 <- Shape2
-              v3 <- Shape1 + Shape2
-              
-              #Compute step by step factorials
-              for(counter_ in 1:(U-1)){
-                product_ <- ifelse(v1<= Shape1 + k -1, v1*product_,product_)
-                product_ <- ifelse(v3<= Shape1 + Shape2 + U -1, product_/v3,product_)
-                product_ <- ifelse(v2<= Shape2 + U - k -1, v2*product_,product_)
-                
-                v1 <- v1 + counter_
-                v2 <- v2 + counter_
-                v3 <- v3 + counter_
-              }
-    }
-    else{
-      
-    product_ <- Stirling(x = -1+Shape1+k, y = -1+Shape2+U-k)-Stirling(x = Shape1, y = Shape2)
-      
-    }
-    
-    probability_ <- probability_+choose(Delta, k)*exp(product_)
-  }
-    
-  return(probability_)  
-    
-}
-
-
-# Output ------------------------------------------------------------------
-
-printNumbers <- function(x){
-  return(format(abs(round(x))
-              #,digits=10
-              #,nsmall=0
-              ,decimal.mark=".", big.mark=","))
-}
-
-printMoney <- function(x){
-  
-  X <- printNumbers(x)
-    
-  return(ifelse(x<0
-                ,paste("-$" , X, sep = "")
-                ,paste("$" , X, sep = "")
-                )
-         )
-}
-
-
-# SQL data gathering ------------------------------------------------------
-
-get.paids.sql <- function(dataRange = NULL#c(Sys.Date()-1,Sys.Date())
-                          ,Tours = NULL
-                          ){
-                  return(paste("SELECT
-                                     m.cmp_member_id
-                                     ,DATE(m.join_date) AS join_date
-                                     ,m.tour_id
-                                     -- ,m.signup_country
-                                     -- ,ct.value AS upg_reason
-                                     ,(CASE WHEN mf.flag IS NULL THEN 0 ELSE 1 END) AS Hidden 
-                                     -- ,(CASE WHEN gs.orig_affiliate_id IS NULL THEN (CASE WHEN shaved_users.old_affiliate_id IS NULL THEN m.affiliate_id ELSE shaved_users.old_affiliate_id END) ELSE gs.orig_affiliate_id END) AS affiliate_id
-                                     ,m.email
-                                     ,IF((m.email NOT REGEXP '^.*@teamcmp.com$')
-                                          AND (m.email NOT REGEXP '^seleniumcmp.*@gmail.com$')
-                                          AND (m.email NOT REGEXP '^.*@dcodeit.net')
-                                          AND (m.email NOT REGEXP '^.*@null.dcodeit.net$'),FALSE,TRUE) AS isTestUser
-                               FROM adminix.members m
-                                     -- LEFT JOIN adminix.member_custom_tracking ct ON (m.cmp_member_id = ct.cmp_member_id AND ct.`key` = 'upg_reason')
-                                     LEFT JOIN adminix.member_flags mf ON (m.cmp_member_id = mf.cmp_member_id AND mf.flag='hidden')
-                                     -- INNER JOIN dj.successful_joins sj ON sj.join_id=m.successful_join_id
-                                     -- LEFT JOIN dj.gilletted_sessions gs ON sj.session_id = gs.session_id
-                                     -- LEFT JOIN smoochy.users ON users.cmp_member_id = m.cmp_member_id
-                                     -- LEFT JOIN smoochy.shaved_users ON users.smoochy_user_id = shaved_users.smoochy_user_id                              
-                               WHERE 1
-                                     AND m.db = 'smoochy'
-                                     AND (!(m.biller_id = 1 AND m.processor_id IS NULL)) 
-                                     "
-                                     ,ifelse(is.null(dataRange),"",paste("AND m.join_date BETWEEN '",paste(dataRange, collapse="' AND '"),"' ",sep=""))
-                                     ,ifelse(is.null(Tours),"",paste("AND m.tour_id IN(",paste(Tours, collapse=","),") ",sep=""))
-                               ," 
-                                 HAVING 
-                                     isTestUser = FALSE"
-                               ,sep ="")
-                        )
-}
-
-get.frees.sql <- function(Tours){
-                  return(paste("SELECT
-                                     DATE(u.signup_time) AS signup_time
-                                     ,u.cmp_member_id
-                                     ,u.smoochy_user_id
-                                     ,IF((u.email NOT REGEXP '^.*@teamcmp.com$')
-                                         AND (u.email NOT REGEXP '^seleniumcmp.*@gmail.com$')
-                                         AND (u.email NOT REGEXP '^.*@dcodeit.net')
-                                         AND (u.email NOT REGEXP '^.*@null.dcodeit.net$'),FALSE,TRUE) AS isTestUser
-                                    ,u.tour_id
-                                 FROM smoochy.users u
-                                    LEFT JOIN adminix.transactions t ON (t.cmp_member_id = u.cmp_member_id)
-                                 WHERE 1
-                                    AND u.tour_id IN (",paste(Tours, collapse = ","),")
-                                 HAVING 
-                                    isTestUser = FALSE"
-                                ,sep ="")
-                          )
-                }
-
-get.raws_and_uniques.sql <- function(Tours){
-                            return(paste("SELECT
-                                              thedate
-                                              ,SUM(uniques) AS uniques
-                                              ,SUM(raws) AS raws
-                                              -- ,hit_type
-                                              ,tracking_historical.tour_id
-                                          FROM	adminix.tracking_historical
-                                              INNER JOIN cmpbadoink.affiliates ON tracking_historical.affiliate_id=affiliates.id
-                                              -- INNER JOIN adminix.tours ON tracking_historical.tour_id=tours.tour_id
-                                          WHERE 1
-                                              AND (tracking_historical.hit_type IN (1,172))
-                                              AND (cmpbadoink.affiliates.upseller = 0)
-                                              -- AND (adminix.tours.affiliate_type IN ('smoochy'))
-                                              -- AND (adminix.tours.affiliate_type NOT IN ('redirect'))
-                                              AND tracking_historical.tour_id IN (",paste(Tours, collapse = ","),")
-                                          GROUP BY thedate,tracking_historical.tour_id;"
-                                              , sep = "")
-                                )
-                            }
