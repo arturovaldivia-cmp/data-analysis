@@ -1,62 +1,30 @@
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# CMP Data Analysis
+# AV: Oct 2016
 #
-# This is the user-interface definition of a Shiny web application. You can
-# run the application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-# 
-#    http://shiny.rstudio.com/
-#
+# Success ratio analysis (UI)
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 library("shiny")
 library(plotly)
-# Define UI for application that draws a histogram
+
 shinyUI(fluidPage(
   
-  h1("A/B test")
-  ,hr()
-  ,h2("Select test")
-  ,fluidRow(
-        column(3
-              ,numericInput("testid", "Select test id:", 816)
-              ,numericInput("Control_position", "Control's position in tours list:", 0)
-              ,dateRangeInput("daterange", "Date range:",
-                   start = "2016-06-13",
-                   end   = "2016-12-21")
-              ,radioButtons("ratioSelector"
-                             ,"Select ratio to compare",inline=TRUE
-                             ,c("EPC" = "R:P"
-                                #,"U:F" = "U:F"
-                                ,"F:P" = "F:P"
-                               )
-                            )
-              ,radioButtons("autoupdate"
-                            ,"Auto update?",inline=TRUE
-                            ,c("No" = "no",
-                               "Yes" = "yes"))
-              ,actionButton("goButton", "Connect to data base")
-              
-              
-        ),
-        column(9
-               ,h4("Summary")
-               ,tableOutput('summaryTable')
-               ,h4(textOutput("topSummary"))
-               )
-  )
+  h1("Success ratio analysis")
   ,hr()
   
   ,h2("Inspection")
   ,fluidRow(
         column(3
-               ,h4("Visits")
+               ,h4("Attempts")
                # Paramaters
-               ,numericInput("b1", "Number of visitors in Variation A:", 100)
-               ,numericInput("b2", "Number of visitors in Variation B:", 100)
+               ,numericInput("b1", "Number of attempts in Control:", 100)
+               ,numericInput("b2", "Number of attempts in Test:", 100)
                )
         ,column(3
-                ,h4("Sales")
-               ,numericInput("a1", "Number of sales in Variation A:", 15)
-               ,numericInput("a2", "Number of sales in Variation B:", 10)
+                ,h4("Successes")
+               ,numericInput("a1", "Number of successes in Control:", 15)
+               ,numericInput("a2", "Number of successes in Test:", 10)
                )
         ,column(3
                #,h4("Extras")
